@@ -1,70 +1,71 @@
-# ECommerceEcosystem 🚀
+# 🚀 ECommerceEcosystem — Distributed .NET Microservices
 
-Ecosistema distribuido y desacoplado de Comercio Electrónico diseñado bajo una arquitectura de **Microservicios** con **.NET**, aplicando comunicación síncrona inter-servicio y persistencia políglota (relacional y NoSQL).
+Decoupled e-commerce backend built as **.NET microservices** with synchronous inter-service communication and **polyglot persistence** (relational + NoSQL).
 
-## 🏗️ Arquitectura del Sistema
+---
 
-El ecosistema está fragmentado en componentes autónomos que interactúan eficientemente para garantizar la consistencia y la velocidad del negocio:
+## 🏗️ Architecture
 
-* **`Catalog.API`:** Microservicio encargado de la gestión del catálogo de productos. Utiliza **SQL Server** como almacenamiento relacional y mapeo quirúrgico de datos mediante **Entity Framework Core**.
-* **`Basket.API`:** Microservicio enfocado en la gestión del carrito de compras de alta velocidad. Implementa un repositorio NoSQL clave-valor utilizando **Redis** para asegurar lecturas y escrituras en milisegundos.
+- **`Catalog.API`** — product catalog service. SQL Server storage mapped with **Entity Framework Core**.
+- **`Basket.API`** — high-speed shopping-cart service backed by **Redis** (key-value store, millisecond reads/writes).
 
-[Cliente/Swagger] ───(HTTP POST)───> [Basket.API]
-│
-(HTTP GET /api/catalog/{id})
-│
-▼
-[Catalog.API] ───> [SQL Server]
-│
-(Devuelve Record inmutable con Precio Real)
-│
-▼
-[Basket.API] ───(Mapea vía DTO & Guarda en Puerto 6379)───> [Redis NoSQL]
+```
+[Client / Swagger] ──(HTTP POST)──> [Basket.API]
+                                        │
+                          (HTTP GET /api/catalog/{id})
+                                        ▼
+                                  [Catalog.API] ──> [SQL Server]
+                                        │
+                        (returns immutable record with the real price)
+                                        ▼
+[Basket.API] ──(maps via DTO, stores on port 6379)──> [Redis]
+```
 
-## 🛠️ Decisiones de Ingeniería y Patrones Aplicados
+---
 
-### 1. Persistencia NoSQL con Redis
-Para evitar saturar la base de datos relacional con operaciones volátiles (agregar/quitar productos del carrito), se delegó el almacenamiento de `Basket.API` a una instancia distribuida de **Redis Server**. Los datos se serializan y estructuran dinámicamente como documentos JSON eficientes bajo el flujo clave-valor (`userName` -> `ShoppingCart`).
+## 🛠️ Engineering Decisions
 
-### 2. Comunicación Síncrona Segura (HttpClient)
-El microservicio de carrito no confía en los precios ni en la información que envía el cliente desde el frontend. Cada vez que se procesa o actualiza un carrito:
-* `Basket.API` invoca internamente a `Catalog.API` mediante un cliente HTTP optimizado (`HttpClient`).
-* Se extrae el precio real directamente desde SQL Server, neutralizando cualquier intento de alteración maliciosa de costos.
+1. **Redis for volatile operations** — cart add/remove traffic never hits the relational database; baskets are serialized as JSON under a `userName → ShoppingCart` key-value flow.
+2. **Server-side price verification** — `Basket.API` never trusts client-submitted prices: on every cart operation it calls `Catalog.API` through `HttpClient` and reads the real price from SQL Server, neutralizing client-side price tampering.
+3. **Immutable records + DTOs** — the product domain is modeled with positional `record` types; an internal `CatalogProductDto` translates contract mismatches between services (`Name` vs `ProductName`) without coupling them.
+4. **Automated data seeding** — EF Core migrations populate the catalog with test data on first run.
 
-### 3. Inmutabilidad de Datos y Patrón DTO (Data Transfer Object)
-* **Records Posicionales:** En `Catalog.API`, el dominio de productos se modeló utilizando `public record Product`, garantizando contratos de datos inmutables y seguros.
-* **Desacoplamiento con DTOs:** Para resolver el *mismatch* de propiedades entre servicios (donde el catálogo expone `Name` y el carrito requiere `ProductName`), se implementó un `CatalogProductDto` interno en la capa de consumo para traducir quirúrgicamente los contratos de las APIs sin romper la compilación.
+---
 
-### 4. Inicialización Automática de Base de Datos (Data Seeding)
-Se configuró el pipeline de Entity Framework Core para inyectar de manera automatizada datos semilla reales en SQL Server a través de migraciones dirigidas, poblando el catálogo con hardware de prueba listo para producción desde el primer arranque.
+## 🧰 Stack
 
-## 🧰 Tecnologías Utilizadas
+C# / .NET · ASP.NET Core Minimal APIs · Entity Framework Core · SQL Server · Redis (port `6379`) · Swagger / OpenAPI
 
-* **Lenguaje:** C# (.NET)
-* **Frameworks:** ASP.NET Core Web API (Minimal APIs)
-* **ORMs & BD Relacional:** Entity Framework Core & SQL Server
-* **BD NoSQL:** Redis Distributed Cache (Puerto `6379`)
-* **Documentación:** Swagger / OpenAPI
-* **Control de Versiones:** Git & GitHub
+---
 
-## 🚀 Cómo Ejecutar el Proyecto
+## 🚀 Getting Started
 
-### Requisitos Previos
-* SDK de .NET instalado.
-* Instancia de SQL Server activa.
-* Servidor Redis corriendo localmente en el puerto predeterminado `6379`.
+### Prerequisites
 
-### Pasos
-1. **Clonar el repositorio:**
-   ```bash
-   git clone [https://github.com/joseluismontezamilian12-rgb/ECommerceEcosystem.git](https://github.com/joseluismontezamilian12-rgb/ECommerceEcosystem.git)
-Aplicar las migraciones e inyectar los datos semilla:
-Abre la Consola del Administrador de Paquetes en Visual Studio y ejecuta:
+- .NET SDK
+- SQL Server instance
+- Redis running locally on the default port `6379`
 
-Plaintext
-Update-Database -Project Catalog.API -StartupProject Catalog.API
-Configurar múltiples proyectos de inicio:
-En las propiedades de la solución en Visual Studio, establece tanto a Catalog.API como a Basket.API con la acción Iniciar (Start).
+### Steps
 
-Ejecutar:
-Presiona F5 o el botón Play. Se abrirán los dashboards de Swagger de ambos microservicios listos para interactuar.
+```bash
+git clone https://github.com/joseluismontezamilian12-rgb/ECommerceEcosystem.git
+cd ECommerceEcosystem
+
+# apply migrations + seed the catalog
+dotnet ef database update --project Catalog.API --startup-project Catalog.API
+
+# run both services (separate terminals)
+dotnet run --project Catalog.API
+dotnet run --project Basket.API
+```
+
+Open each service's Swagger UI to interact with the APIs.
+
+> **Visual Studio alternative:** run `Update-Database -Project Catalog.API -StartupProject Catalog.API` in the Package Manager Console and set both APIs as startup projects.
+
+---
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE).
