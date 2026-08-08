@@ -33,6 +33,19 @@ var app = builder.Build();
 // Igual que en Catalog.API: la documentación vive en la raíz y también en
 // producción, porque el punto de esta API es que se pueda probar sin instalar nada.
 app.UseSwagger();
+
+// Mismo motivo que en Catalog.API: evitar el 301 relativo de la raíz, que
+// varios rastreadores rechazan.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/")
+    {
+        context.Request.Path = "/index.html";
+    }
+
+    await next();
+});
+
 app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "Basket.API v1");

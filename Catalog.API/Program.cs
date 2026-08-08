@@ -29,6 +29,20 @@ if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
 // Swagger queda disponible también en producción y en la raíz: es una API de
 // portafolio, y su valor es que cualquiera pueda probarla desde el navegador.
 app.UseSwagger();
+
+// En la raíz, Swagger responde a "/" con un 301 hacia "index.html" — un destino
+// relativo. Los navegadores lo resuelven, pero varios rastreadores lo rechazan y
+// dan la URL por inalcanzable. Reescribimos la ruta para devolver 200 directo.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/")
+    {
+        context.Request.Path = "/index.html";
+    }
+
+    await next();
+});
+
 app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "Catalog.API v1");
