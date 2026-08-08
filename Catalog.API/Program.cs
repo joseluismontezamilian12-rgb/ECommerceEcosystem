@@ -15,13 +15,32 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// 🚚 2. MIGRACIONES AUTOMÁTICAS (solo si se activa por configuración)
+// En la nube no hay nadie para correr "dotnet ef database update" a mano, así que
+// el propio arranque crea el esquema y siembra el catálogo. Va detrás de una
+// bandera para que un despliegue local nunca toque una base sin querer.
+if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<CatalogDbContext>().Database.MigrateAsync();
 }
 
-app.UseHttpsRedirection();
+// 📖 3. DOCUMENTACIÓN PÚBLICA
+// Swagger queda disponible también en producción y en la raíz: es una API de
+// portafolio, y su valor es que cualquiera pueda probarla desde el navegador.
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Catalog.API v1");
+    options.RoutePrefix = string.Empty;
+});
+
+// Azure App Service ya termina el TLS en su proxy: redirigir dentro de la app
+// solo produce saltos de más. Fuera de producción sí se conserva.
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 
 // 🌐 RUTAS DE LA API CONECTADAS A SQL SERVER (Usando Entity Framework Core)
 
