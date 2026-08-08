@@ -17,8 +17,10 @@ builder.Services.AddScoped<IBasketRepository, BasketRepository>();
 // 🌐 3. CONFIGURAR LA COMUNICACIÓN CON EL MICROSERVICIO DE CATÁLOGO
 builder.Services.AddHttpClient<CatalogService>(client =>
 {
-    // Apuntamos al puerto exacto de tu Catalog.API
-    client.BaseAddress = new Uri("https://localhost:44366");
+    // La dirección del catálogo cambia con el entorno (local, Azure, otro cluster),
+    // así que se lee de la configuración. El puerto local queda solo como respaldo.
+    client.BaseAddress = new Uri(
+        builder.Configuration.GetValue<string>("Services:CatalogUrl") ?? "https://localhost:44366");
 });
 
 // Configuración básica de Swagger
@@ -27,13 +29,21 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// 📖 DOCUMENTACIÓN PÚBLICA
+// Igual que en Catalog.API: la documentación vive en la raíz y también en
+// producción, porque el punto de esta API es que se pueda probar sin instalar nada.
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Basket.API v1");
+    options.RoutePrefix = string.Empty;
+});
 
-app.UseHttpsRedirection();
+// Azure App Service ya termina el TLS en su proxy.
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 
 // 🌐 RUTAS DE LA API (Endpoints para el Carrito de Compras)
 
