@@ -37,6 +37,20 @@ app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "Basket.API v1");
     options.RoutePrefix = string.Empty;
+    options.DocumentTitle = "Basket.API";
+
+    // Igual que en Catalog.API: sin metadatos, ningun rastreador social puede
+    // construir la vista previa de este enlace.
+    options.HeadContent = """
+        <meta name="description" content="Microservicio de carrito en .NET 10 sobre Redis. Nunca confia en el precio que envia el cliente: lo relee del catalogo antes de guardar.">
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="Jose Luis Monteza">
+        <meta property="og:title" content="Basket.API - carrito en .NET 10 sobre Redis">
+        <meta property="og:description" content="Mandale una laptop de 1200 con el precio en 1.00 y te responde 1200: la validacion vive en el servidor, donde el cliente no llega.">
+        <meta property="og:url" content="https://ecommerce-basket-lnxj7c.azurewebsites.net">
+        <meta property="og:image" content="https://avatars.githubusercontent.com/u/272381527?v=4">
+        <meta name="twitter:card" content="summary">
+        """;
 });
 
 // Azure App Service ya termina el TLS en su proxy.
