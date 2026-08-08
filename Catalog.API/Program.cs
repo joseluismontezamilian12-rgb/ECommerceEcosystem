@@ -29,10 +29,39 @@ if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
 // Swagger queda disponible también en producción y en la raíz: es una API de
 // portafolio, y su valor es que cualquiera pueda probarla desde el navegador.
 app.UseSwagger();
+
+// En la raíz, Swagger responde a "/" con un 301 hacia "index.html" — un destino
+// relativo. Los navegadores lo resuelven, pero varios rastreadores lo rechazan y
+// dan la URL por inalcanzable. Reescribimos la ruta para devolver 200 directo.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/")
+    {
+        context.Request.Path = "/index.html";
+    }
+
+    await next();
+});
+
 app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "Catalog.API v1");
     options.RoutePrefix = string.Empty;
+    options.DocumentTitle = "Catalog.API";
+
+    // La página de Swagger es un esqueleto que rellena JavaScript: sin estas
+    // etiquetas un rastreador social solo ve un documento vacío y se niega a
+    // generar la vista previa del enlace.
+    options.HeadContent = """
+        <meta name="description" content="Microservicio de catalogo en .NET 10: Minimal APIs, Entity Framework Core y SQL Server en Azure. Documentacion publica.">
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="Jose Luis Monteza">
+        <meta property="og:title" content="Catalog.API - catalogo de productos en .NET 10">
+        <meta property="og:description" content="Minimal APIs sobre EF Core y Azure SQL. Es la fuente de verdad de los precios: Basket.API los relee de aqui antes de guardar cualquier carrito.">
+        <meta property="og:url" content="https://ecommerce-catalog-lnxj7c.azurewebsites.net">
+        <meta property="og:image" content="https://avatars.githubusercontent.com/u/272381527?v=4">
+        <meta name="twitter:card" content="summary">
+        """;
 });
 
 // Azure App Service ya termina el TLS en su proxy: redirigir dentro de la app
