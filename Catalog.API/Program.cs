@@ -7,7 +7,15 @@ var builder = WebApplication.CreateBuilder(args);
 // 🛠️ 1. CONEXIÓN A LA BASE DE DATOS REAL (Inyección de Dependencias)
 // Leemos la cadena de conexión del appsettings.json y registramos nuestro DbContext
 builder.Services.AddDbContext<CatalogDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        // Azure SQL serverless pausa la base cuando nadie la usa, y la primera consulta
+        // tras la pausa falla mientras el servidor despierta. Sin reintentos eso sale
+        // como un 500 y la API parece rota cuando solo estaba dormida.
+        sql => sql.EnableRetryOnFailure(
+            maxRetryCount: 8,
+            maxRetryDelay: TimeSpan.FromSeconds(15),
+            errorNumbersToAdd: null)));
 
 // Configuración de Swagger
 builder.Services.AddEndpointsApiExplorer();
